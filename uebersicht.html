@@ -10,14 +10,39 @@
   h1{font-size:22px;margin-bottom:4px;}
   .sub{color:#94a3b8;font-size:13px;margin-bottom:20px;}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
+  .header-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:20px;margin-bottom:8px;}
+  .baker-box{display:flex;align-items:center;gap:14px;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px 18px;}
+  .baker{font-size:42px;display:inline-block;animation:wobble 1.6s ease-in-out infinite;}
+  @keyframes wobble{
+    0%,100%{transform:rotate(-8deg) translateY(0);}
+    50%{transform:rotate(8deg) translateY(-4px);}
+  }
+  .cookie{font-size:26px;display:inline-block;margin:0 4px;animation:pop 1.2s ease-in-out infinite;}
+  .cookie:nth-child(2){animation-delay:.2s;}
+  .cookie:nth-child(3){animation-delay:.4s;}
+  @keyframes pop{
+    0%,100%{transform:scale(1);opacity:.7;}
+    50%{transform:scale(1.25);opacity:1;}
+  }
+  .countdown{font-size:13px;color:#94a3b8;}
+  .countdown b{color:#facc15;}
 </style>
 </head>
 <body>
-<div style="display:flex;align-items:center;gap:14px;margin-bottom:4px;">
-  <img src="logo.png" alt="Logo" style="height:48px;width:auto;border-radius:8px;">
-  <h1 style="margin:0;">Aktienspekulatius Watchlist</h1>
+<div class="header-row">
+  <div style="display:flex;align-items:center;gap:14px;">
+    <img src="logo.png" alt="Logo" style="height:48px;width:auto;border-radius:8px;">
+    <div>
+      <h1 style="margin:0;">Aktienspekulatius Watchlist</h1>
+      <div class="sub" style="margin-bottom:0;">Automatisch aktualisiert durch GitHub Actions &middot; Kursdaten via Twelve Data (ca. 15 Min. verzoegert)</div>
+    </div>
+  </div>
+  <div class="baker-box">
+    <span class="baker">🧑‍🍳</span>
+    <span class="cookie">🍪</span><span class="cookie">🍪</span><span class="cookie">🍪</span>
+    <div class="countdown">Naechste Aktualisierung in <b><span id="cd">15:00</span></b> Min.</div>
+  </div>
 </div>
-<div class="sub">Automatisch aktualisiert durch GitHub Actions &middot; Kursdaten via Twelve Data (ca. 15 Min. verzoegert)</div>
 <div class="grid">
 
         <div style="background:#1e293b;border-radius:10px;padding:14px;border:1px solid #334155;">
@@ -39,6 +64,16 @@
         </div>
         
 </div>
+<script>
+let seconds = 15*60;
+const cdEl = document.getElementById("cd");
+setInterval(() => {
+  seconds = seconds > 0 ? seconds - 1 : 15*60;
+  const m = String(Math.floor(seconds/60)).padStart(2,"0");
+  const s = String(seconds%60).padStart(2,"0");
+  cdEl.textContent = m + ":" + s;
+}, 1000);
+</script>
 <script>
 
         new Chart(document.getElementById('chart-0').getContext('2d'), {
