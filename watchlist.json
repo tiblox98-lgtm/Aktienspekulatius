@@ -1,4 +1,24 @@
 [
-  {"isin": "DE0007664039", "target": 55, "alltime": false, "yearlow": true},
-  {"isin": "IE00B4L5Y983", "target": null, "alltime": true, "yearlow": true}
+  {
+    "isin": "DE0007664039",
+    "target": 55,
+    "alltime": false,
+    "yearlow": true,
+    "symbol": "VOW3",
+    "name": "Volkswagen AG Preferred Stock",
+    "price": 71.46,
+    "low52": 69.2,
+    "notified": false
+  },
+  {
+    "isin": "IE00B4L5Y983",
+    "target": null,
+    "alltime": true,
+    "yearlow": true,
+    "symbol": "SWDA",
+    "name": "iShares Core MSCI World UCITS ETF USD (Acc)",
+    "price": 0.0,
+    "low52": 0.0,
+    "notified": false
+  }
 ]
