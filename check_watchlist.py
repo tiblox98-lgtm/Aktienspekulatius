@@ -209,8 +209,6 @@ def build_html_report(watchlist):
 </html>"""
     with open("uebersicht.html", "w", encoding="utf-8") as f:
         f.write(html)
-    with open("index.html", "w", encoding="utf-8") as f:
-        f.write(html)
 
 if __name__ == "__main__":
     main()
