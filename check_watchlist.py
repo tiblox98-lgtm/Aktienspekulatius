@@ -194,7 +194,10 @@ def build_html_report(watchlist):
 </style>
 </head>
 <body>
-<h1>📈 Watchlist Uebersicht</h1>
+<div style="display:flex;align-items:center;gap:14px;margin-bottom:4px;">
+  <img src="logo.png" alt="Logo" style="height:48px;width:auto;border-radius:8px;">
+  <h1 style="margin:0;">Aktienspekulatius Watchlist</h1>
+</div>
 <div class="sub">Automatisch aktualisiert durch GitHub Actions &middot; Kursdaten via Twelve Data (ca. 15 Min. verzoegert)</div>
 <div class="grid">
 {cards}
@@ -211,4 +214,5 @@ def build_html_report(watchlist):
 
 if __name__ == "__main__":
     main()
+
 
