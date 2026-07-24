@@ -1,8 +1,7 @@
 """
 Watchlist Checker fuer GitHub Actions
-Prueft ISINs auf Zielkurs / Year-Low / Alltime-Low und verschickt bei Treffer eine E-Mail.
-Erzeugt zusaetzlich einen HTML-Report (uebersicht.html), der bei jedem Lauf aktualisiert
-und ins Repo zurueckgeschrieben wird (GitHub Pages kann diesen dann anzeigen).
+Prueft ISINs auf Zielkurs / Year-Low / Alltime-Low, verschickt bei Treffer eine E-Mail
+und erzeugt einen HTML-Report MIT Charts (Chart.js), der ueber GitHub Pages angezeigt werden kann.
 """
 import os, json, smtplib, ssl
 from email.mime.multipart import MIMEMultipart
@@ -70,11 +69,16 @@ def main():
         low52 = float(q.get("fifty_two_week", {}).get("low", 0) or 0)
         item["price"] = price
         item["low52"] = low52
+        item["prev_close"] = float(q.get("previous_close", 0) or 0)
+
+        hist = get_history(item["symbol"], outputsize=90, interval="1day")
+        if hist:
+            item["history"] = hist
 
         if item.get("alltime"):
-            hist = get_history(item["symbol"], outputsize=5000, interval="1week")
-            if hist:
-                item["all_time_low"] = min(hist)
+            long_hist = get_history(item["symbol"], outputsize=5000, interval="1week")
+            if long_hist:
+                item["all_time_low"] = min(long_hist)
 
         hit_reasons = []
         if item.get("target") and price and price <= item["target"]:
@@ -83,6 +87,9 @@ def main():
             hit_reasons.append(f"Year-Low {low52:.2f}")
         if item.get("alltime") and item.get("all_time_low") and price <= item["all_time_low"] * 1.01:
             hit_reasons.append(f"Alltime-Low {item['all_time_low']:.2f}")
+
+        item["hit"] = bool(hit_reasons)
+        item["hit_reasons"] = hit_reasons
 
         already_notified = item.get("notified", False)
         if hit_reasons and not already_notified:
@@ -106,7 +113,7 @@ def main():
         {rows}
         </table>
         """
-        send_mail(f"🎯 Watchlist Alarm: {len(triggered)} Position(en) erreicht", body)
+        send_mail(f"Watchlist Alarm: {len(triggered)} Position(en) erreicht", body)
         print(f"Mail versendet fuer {len(triggered)} Treffer.")
     else:
         print("Keine neuen Alarme.")
@@ -114,24 +121,94 @@ def main():
     build_html_report(watchlist)
 
 def build_html_report(watchlist):
-    rows = ""
-    for it in watchlist:
-        hit = it.get("notified", False)
-        rows += f"""<tr style="background:{'#d1fae5' if hit else '#fff'}">
-          <td>{it.get('name') or it['isin']}</td><td>{it['isin']}</td>
-          <td>{it.get('price','-')}</td><td>{it.get('target','-')}</td>
-          <td>{it.get('low52','-')}</td><td>{it.get('all_time_low','-')}</td>
-          <td>{'✅' if hit else ''}</td></tr>"""
-    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8">
-    <title>Watchlist Uebersicht</title>
-    <style>body{{font-family:Arial;background:#0f172a;color:#e2e8f0;padding:20px}}
-    table{{border-collapse:collapse;width:100%}} td,th{{padding:8px;border:1px solid #334155}}
-    th{{background:#1e293b}}</style></head><body>
-    <h1>📈 Watchlist Uebersicht (automatisch aktualisiert)</h1>
-    <table><tr><th>Name</th><th>ISIN</th><th>Kurs</th><th>Ziel</th><th>52W Low</th><th>Alltime Low</th><th>Alarm</th></tr>
-    {rows}</table></body></html>"""
+    cards = ""
+    for i, it in enumerate(watchlist):
+        hit = it.get("hit", False)
+        change = None
+        if it.get("price") and it.get("prev_close"):
+            change = (it["price"] - it["prev_close"]) / it["prev_close"] * 100
+        change_html = ""
+        if change is not None:
+            color = "#22c55e" if change > 0 else "#ef4444" if change < 0 else "#94a3b8"
+            change_html = f'<span style="color:{color};font-size:12px;margin-left:6px;">{change:+.2f}%</span>'
+
+        legend = []
+        if it.get("target") is not None:
+            legend.append(f'<span style="color:#facc15">● Ziel {it["target"]}</span>')
+        if it.get("yearlow"):
+            legend.append(f'<span style="color:#ef4444">● Year-Low {it.get("low52","-")}</span>')
+        if it.get("alltime"):
+            legend.append(f'<span style="color:#a78bfa">● Alltime-Low {it.get("all_time_low","-")}</span>')
+        legend_html = " &nbsp; ".join(legend)
+
+        reasons_html = ""
+        if hit:
+            reasons_html = f'<div style="color:#22c55e;font-weight:bold;margin-top:6px;">✅ Alarm: {", ".join(it.get("hit_reasons",[]))}</div>'
+
+        border = "border:2px solid #22c55e;box-shadow:0 0 12px rgba(34,197,94,.4);" if hit else "border:1px solid #334155;"
+
+        cards += f"""
+        <div style="background:#1e293b;border-radius:10px;padding:14px;{border}">
+          <h3 style="margin:0 0 2px;font-size:16px;">{it.get('name') or it.get('symbol') or it['isin']}</h3>
+          <div style="font-size:11px;color:#94a3b8;">{it['isin']} &middot; {it.get('symbol','-')}</div>
+          <div style="font-size:22px;font-weight:700;margin-top:4px;">{it.get('price','-')}{change_html}</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:4px;">{legend_html}</div>
+          {reasons_html}
+          <canvas id="chart-{i}" style="margin-top:8px;max-height:140px;"></canvas>
+        </div>
+        """
+
+    chart_scripts = ""
+    for i, it in enumerate(watchlist):
+        hist = it.get("history", [])
+        if not hist:
+            continue
+        n = len(hist)
+        datasets = [f"{{label:'Kurs',data:{hist},borderColor:'#38bdf8',borderWidth:1.5,pointRadius:0,fill:false}}"]
+        if it.get("target") is not None:
+            datasets.append(f"{{label:'Ziel',data:Array({n}).fill({it['target']}),borderColor:'#facc15',borderWidth:1,borderDash:[5,4],pointRadius:0}}")
+        if it.get("yearlow") and it.get("low52"):
+            datasets.append(f"{{label:'Year-Low',data:Array({n}).fill({it['low52']}),borderColor:'#ef4444',borderWidth:1,borderDash:[5,4],pointRadius:0}}")
+        if it.get("alltime") and it.get("all_time_low"):
+            datasets.append(f"{{label:'Alltime-Low',data:Array({n}).fill({it['all_time_low']}),borderColor:'#a78bfa',borderWidth:1,borderDash:[2,3],pointRadius:0}}")
+        chart_scripts += f"""
+        new Chart(document.getElementById('chart-{i}').getContext('2d'), {{
+          type:'line',
+          data:{{labels:Array({n}).fill(''), datasets:[{','.join(datasets)}]}},
+          options:{{plugins:{{legend:{{display:false}}}}, scales:{{x:{{display:false}}, y:{{display:true,ticks:{{color:'#94a3b8',font:{{size:9}}}}}}}}}}
+        }});
+        """
+
+    html = f"""<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="refresh" content="900">
+<title>Watchlist Uebersicht</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body{{font-family:'Segoe UI',Arial,sans-serif;background:#0f172a;color:#e2e8f0;padding:24px;margin:0;}}
+  h1{{font-size:22px;margin-bottom:4px;}}
+  .sub{{color:#94a3b8;font-size:13px;margin-bottom:20px;}}
+  .grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}}
+</style>
+</head>
+<body>
+<h1>📈 Watchlist Uebersicht</h1>
+<div class="sub">Automatisch aktualisiert durch GitHub Actions &middot; Kursdaten via Twelve Data (ca. 15 Min. verzoegert)</div>
+<div class="grid">
+{cards}
+</div>
+<script>
+{chart_scripts}
+</script>
+</body>
+</html>"""
     with open("uebersicht.html", "w", encoding="utf-8") as f:
+        f.write(html)
+    with open("index.html", "w", encoding="utf-8") as f:
         f.write(html)
 
 if __name__ == "__main__":
     main()
+
