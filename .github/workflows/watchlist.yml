@@ -26,4 +26,4 @@ jobs:
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Update watchlist state + report"
-          file_pattern: "watchlist.json uebersicht.html index.html"
+          file_pattern: "watchlist.json uebersicht.html"
