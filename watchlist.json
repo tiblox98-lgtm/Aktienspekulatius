@@ -6,12 +6,11 @@
     "yearlow": true,
     "symbol": "VOW3",
     "name": "Volkswagen AG Preferred Stock",
-    "price": 72.42,
+    "price": 75.0,
     "low52": 69.2,
     "notified": false,
-    "prev_close": 73.3,
+    "prev_close": 72.42,
     "history": [
-      88.74,
       88.36,
       86.68,
       87.14,
@@ -100,7 +99,8 @@
       75.019997,
       73.82,
       73.3,
-      72.42
+      72.42,
+      75.0
     ],
     "hit": false,
     "hit_reasons": []
